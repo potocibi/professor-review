@@ -10,17 +10,28 @@ The goal: turn AI-generated slop into code a new developer joining the team can 
 
 The skill uses a **cheap-executor / expensive-advisor** pattern (inspired by Anthropic's [advisor tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool)). The skill body and parallel review passes run on a fast model; an Opus-pinned advisor agent is consulted twice — once before dispatch to plan focus areas, once after aggregation to sanity-check grades. You get most of the quality of an all-Opus review at much lower cost.
 
-Dispatches three review passes in parallel:
+Dispatches four review passes in parallel:
 
-1. **Quality** — security holes, bugs, performance, naming, error handling, language idioms
+1. **Quality** — bugs, performance, naming, error handling, language idioms
 2. **Design** — cohesion, coupling, SRP, file size, cross-file duplication
 3. **AI-slop signatures** — over-abstraction, dead scaffolding, ceremony docstrings, "for future use" parameters with no callers, AI-task references in comments, decorative em-dashes
+4. **Security** — dedicated threat-modeling pass: OWASP Top 10, injection, broken authn/authz, weak crypto, insecure deserialization, SSRF, secrets handling, language-specific footguns. CRITICAL security findings produce a merge-block banner and are never auto-fixed.
 
 Findings get bucketed into a five-dimension rubric, each dimension gets a letter grade A–F, and you get a weighted overall grade.
 
 **Phase 2 — Fix (opt-in)**
 
 If you approve, a separate fixer agent applies fixes for HIGH and CRITICAL findings only (MEDIUM and LOW are left alone — they're style preferences). Every comment and docstring it touches gets humanized: AI-tell phrases stripped, ceremony preambles removed, restating comments deleted.
+
+The fixer follows five non-negotiable rules:
+
+1. Don't change the program's purpose
+2. Don't break the program (syntax check + fast tests after every file; revert on fail)
+3. Don't put the code in a worse state (net issue count cannot rise)
+4. Don't duplicate code (grep for existing equivalents before creating any new helper)
+5. Don't replace AI slop with AI slop (mandatory self-review of own diff)
+
+**Security CRITICALs are never auto-fixed.** They're surfaced under "Left for human review" in the post-fix report so you can patch them yourself with full context.
 
 ## Install
 
@@ -112,6 +123,7 @@ Dimension weights for the overall:
 | `src/command/professor-review.md` | `~/.claude/commands/professor-review.md` |
 | `src/agent/professor-advisor.md` | `~/.claude/agents/professor-advisor.md` |
 | `src/agent/professor-reviewer.md` | `~/.claude/agents/professor-reviewer.md` |
+| `src/agent/professor-security.md` | `~/.claude/agents/professor-security.md` |
 | `src/agent/professor-fixer.md` | `~/.claude/agents/professor-fixer.md` |
 
 The installer warns rather than overwrites. Delete the existing files first if you want to reinstall.
@@ -124,7 +136,8 @@ Claude Code. That's it. The skill is fully self-contained — no plugins, no oth
 
 The skill uses the `sonnet` and `opus` aliases everywhere, so it always runs on the latest versions of each model that your Claude Code install knows about. No manual upgrades when new models ship — the aliases auto-resolve.
 
-- `professor-reviewer` agent (parallel review passes) → latest Sonnet
+- `professor-reviewer` agent (Quality / Design / AI-slop passes) → latest Sonnet
+- `professor-security` agent (dedicated security pass) → latest Sonnet
 - `professor-advisor` agent (planning + sanity check) → latest Opus
 - `professor-fixer` agent (Phase 2 edits) → latest Sonnet
 
@@ -135,6 +148,7 @@ rm ~/.claude/skills/professor-review/SKILL.md
 rm ~/.claude/commands/professor-review.md
 rm ~/.claude/agents/professor-advisor.md
 rm ~/.claude/agents/professor-reviewer.md
+rm ~/.claude/agents/professor-security.md
 rm ~/.claude/agents/professor-fixer.md
 rmdir ~/.claude/skills/professor-review
 ```

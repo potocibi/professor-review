@@ -76,13 +76,14 @@ This is the cheap-executor / expensive-advisor pattern: most of the work runs on
 
 ### Step 1: Parallel dispatch
 
-**Default mode (full review)** — launch THREE `professor-reviewer` subagents in parallel in a single message:
+**Default mode (full review)** — launch FOUR subagents in parallel in a single message:
 
-1. **Quality pass** — receives the Quality checklist below + the target path. Returns findings.
-2. **Design pass** — receives the Design checklist below + the target path. Returns findings.
-3. **AI-slop pass** — receives the AI-slop signature list below + the target path. Returns findings.
+1. **Quality pass** — `professor-reviewer` agent, receives the Quality checklist below + the target path. Returns findings.
+2. **Design pass** — `professor-reviewer` agent, receives the Design checklist below + the target path. Returns findings.
+3. **AI-slop pass** — `professor-reviewer` agent, receives the AI-slop signature list below + the target path. Returns findings.
+4. **Security pass** — `professor-security` agent (dedicated, has its own checklist baked in). Receives only the target path; the agent's own prompt contains the threat-modeling checklist.
 
-**Fast mode (`--fast`)** — single file or quick check — launch only Quality + AI-slop in parallel, skip Design (cross-file analysis is wasted on one file).
+**Fast mode (`--fast`)** — single file or quick check — launch Quality + AI-slop + Security in parallel; skip Design (cross-file analysis is wasted on one file). Security always runs, even in fast mode — security review on small files is cheap and high-value.
 
 Each agent must return findings as plain lines:
 ```
@@ -190,14 +191,16 @@ These are the tells that code was written by an LLM in one shot and never cleane
 
 ## Phase 1 aggregation
 
-After the three (or two, in fast mode) `professor-reviewer` agents return findings:
+After the four (or three, in fast mode) parallel agents return findings:
 
-1. **Deduplicate** — if two agents flagged the same line, keep the higher severity and merge descriptions
-2. **Bucket by dimension** using each finding's tagged dimension
-3. **Compute scores** — start each dimension at 100, subtract per the grading scale, clamp to ≥0
-4. **Compute overall** — weighted average using the rubric weights
-5. **Map to letter grades** using the grading scale table
-6. **Sort findings** within each severity tier by file path then line number
+1. **Tag source** — before merging, tag every finding with which pass produced it (Quality / Design / AI-slop / Security). This tag is preserved through aggregation and passed to the fixer in Phase 2 so it knows which findings came from Security (and must therefore not be auto-fixed if CRITICAL).
+2. **Deduplicate** — if two agents flagged the same line, keep the higher severity and merge descriptions. If one of the deduped findings came from the Security pass, keep the Security source tag (the merged finding is treated as security-sourced).
+3. **Bucket by dimension** using each finding's tagged dimension. Security findings always go to the Correctness dimension.
+4. **Compute scores** — start each dimension at 100, subtract per the grading scale, clamp to ≥0
+5. **Compute overall** — weighted average using the rubric weights
+6. **Map to letter grades** using the grading scale table
+7. **Sort findings** within each severity tier by file path then line number
+8. **Identify Security CRITICALs** — collect every CRITICAL finding sourced from the Security pass into a separate list for the merge-block banner
 
 ### Step 2.5: Post-aggregation sanity check
 
@@ -219,6 +222,23 @@ Write the report card directly to the conversation. Format:
 
 ```markdown
 # Code Review: <relative path>
+
+<!-- INSERT SECURITY BANNER HERE IF ANY findings from the Security pass are tagged CRITICAL.
+     Banner format (block-quote, all caps header), placed BEFORE the Overall line:
+
+> ## SECURITY BLOCK — <count> CRITICAL findings
+>
+> The Security pass found exploitable issues. Phase 2 will not auto-fix CRITICAL
+> security findings — they require human review.
+>
+> - [file:line] <description>
+> - [file:line] <description>
+>
+> Fix these manually before shipping. Re-run /professor-review after fixing
+> to confirm clearance.
+
+If no Security CRITICALs, omit the banner entirely. -->
+
 **Overall: <letter> (<score>/100)** — <one-sentence verdict>
 
 ## Dimension Grades
@@ -255,6 +275,7 @@ Write the report card directly to the conversation. Format:
 
 ## Phase 2 Recommendation
 Auto-fix would address: <N> CRITICAL, <N> HIGH (~<N> file edits estimated).
+**Note: <count> CRITICAL findings from the Security pass will NOT be auto-fixed — they require human review.** (omit this line if no Security CRITICALs)
 Reply "fix it" or run `/professor-review --fix <path>` to launch Phase 2.
 (or "Phase 2 not recommended — no HIGH or CRITICAL findings." if nothing severe)
 ```
@@ -278,6 +299,7 @@ When triggered, dispatch the **professor-fixer** agent with:
 - The full report card
 - The target path
 - Strict instructions: only touch findings tagged HIGH or CRITICAL, leave MEDIUM/LOW alone
+- **Hard rule**: do NOT auto-fix any CRITICAL finding that came from the Security pass. The fixer's contract treats security CRITICALs as human-only — surface them in the post-fix report under "Left for human review" and move on. Identify Security-pass findings by their source attribution in the findings list (the dispatcher should tag each finding with which pass produced it before passing the report to the fixer).
 
 After the fixer returns, summarize what changed and what was deliberately left alone. Do NOT re-grade — the user can run `/professor-review` again if they want a fresh score.
 

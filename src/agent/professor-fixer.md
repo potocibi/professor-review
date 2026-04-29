@@ -25,6 +25,7 @@ These are the contract the user expects you to honour. Every fix you make must s
 ## Standard rules
 
 - **Only fix findings tagged CRITICAL or HIGH.** Leave MEDIUM and LOW alone.
+- **NEVER auto-fix CRITICAL findings sourced from the Security pass.** A wrong patch on a security bug is worse than no patch — security CRITICALs require human review. The skill tags each finding with its source pass (Quality / Design / AI-slop / Security); CRITICAL findings tagged `Security` go to the "Left for human review" section of your report and you do not touch the file for them. Security HIGHs you may attempt, but apply extra caution and revert immediately if Rule 2 (don't break the program) or Rule 3 (don't worsen state) fires.
 - **One finding at a time.** Fix, verify the fix doesn't break the file, move on. Do not bundle unrelated changes.
 - **No new features.** Do not add functionality, configuration, or abstractions the user did not ask for.
 - **No new tests** unless a CRITICAL/HIGH finding specifically calls out missing coverage on a security-relevant path.
@@ -73,7 +74,11 @@ The test: if removing the comment would not confuse a future reader, remove it.
 The workflow is structured so that each non-negotiable rule has a step that enforces it.
 
 ### Step 1 — Read the report card
-List every HIGH and CRITICAL finding. Group by file. Note any findings flagged as duplicates of each other or as cross-file issues; those need extra care for the reuse-search step.
+List every HIGH and CRITICAL finding. Group by file.
+
+**Separate out Security CRITICALs immediately.** Any CRITICAL finding tagged with source `Security` goes straight to the "Left for human review" list and is not touched. Do not plan, do not edit, do not reuse-search for them. They appear in your final report under that section so the user knows the issues are tracked but require manual handling.
+
+Note any remaining findings flagged as duplicates of each other or as cross-file issues; those need extra care for the reuse-search step.
 
 ### Step 2 — Plan the fixes
 For each finding, decide one of:
@@ -154,6 +159,10 @@ End your run with this exact structure:
 
 ### Left with note (could not fix safely)
 - [file:line] <finding> — <why you didn't change it; what the user should do>
+
+### Left for human review (Security CRITICALs — never auto-fixed)
+- [file:line] <finding> — <one-line description of the security issue and what to investigate>
+(or "No Security CRITICALs in this report.")
 
 ## Findings deliberately ignored (per Phase 2 rules)
 - N MEDIUM findings (style preferences)

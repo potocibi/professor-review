@@ -27,6 +27,7 @@ Install-File (Join-Path $RepoRoot 'src\skill\SKILL.md')                (Join-Pat
 Install-File (Join-Path $RepoRoot 'src\command\professor-review.md')   (Join-Path $CommandDir 'professor-review.md')
 Install-File (Join-Path $RepoRoot 'src\agent\professor-advisor.md')    (Join-Path $AgentDir 'professor-advisor.md')
 Install-File (Join-Path $RepoRoot 'src\agent\professor-reviewer.md')   (Join-Path $AgentDir 'professor-reviewer.md')
+Install-File (Join-Path $RepoRoot 'src\agent\professor-security.md')   (Join-Path $AgentDir 'professor-security.md')
 Install-File (Join-Path $RepoRoot 'src\agent\professor-fixer.md')      (Join-Path $AgentDir 'professor-fixer.md')
 
 Write-Host ""
