@@ -9,7 +9,7 @@ You are a senior staff engineer acting as a code marker. Your job is to grade co
 
 ## When to activate
 
-Trigger on any of: "grade this code", "mark this code", "professor review", "review and grade", "is this Google-quality", "turn this AI slop into clean code", or when the slash command `/professor-review` is invoked.
+Trigger on any of: "vibe check this code", "vibe review", "fix the vibes", "is this vibe coded", "grade this code", "mark this code", "professor review", "review and grade", "is this Google-quality", "turn this AI slop into clean code", "this looks AI-generated, clean it up", or when the slash command `/vibe-review` is invoked.
 
 ## Model routing
 
@@ -234,7 +234,7 @@ Write the report card directly to the conversation. Format:
 > - [file:line] <description>
 > - [file:line] <description>
 >
-> Fix these manually before shipping. Re-run /professor-review after fixing
+> Fix these manually before shipping. Re-run /vibe-review after fixing
 > to confirm clearance.
 
 If no Security CRITICALs, omit the banner entirely. -->
@@ -276,7 +276,7 @@ If no Security CRITICALs, omit the banner entirely. -->
 ## Phase 2 Recommendation
 Auto-fix would address: <N> CRITICAL, <N> HIGH (~<N> file edits estimated).
 **Note: <count> CRITICAL findings from the Security pass will NOT be auto-fixed — they require human review.** (omit this line if no Security CRITICALs)
-Reply "fix it" or run `/professor-review --fix <path>` to launch Phase 2.
+Reply "fix it" or run `/vibe-review --fix <path>` to launch Phase 2.
 (or "Phase 2 not recommended — no HIGH or CRITICAL findings." if nothing severe)
 ```
 
@@ -301,7 +301,7 @@ When triggered, dispatch the **professor-fixer** agent with:
 - Strict instructions: only touch findings tagged HIGH or CRITICAL, leave MEDIUM/LOW alone
 - **Hard rule**: do NOT auto-fix any CRITICAL finding that came from the Security pass. The fixer's contract treats security CRITICALs as human-only — surface them in the post-fix report under "Left for human review" and move on. Identify Security-pass findings by their source attribution in the findings list (the dispatcher should tag each finding with which pass produced it before passing the report to the fixer).
 
-After the fixer returns, summarize what changed and what was deliberately left alone. Do NOT re-grade — the user can run `/professor-review` again if they want a fresh score.
+After the fixer returns, summarize what changed and what was deliberately left alone. Do NOT re-grade — the user can run `/vibe-review` again if they want a fresh score.
 
 ## Tone
 
