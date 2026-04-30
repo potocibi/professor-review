@@ -141,6 +141,7 @@ Dimension weights for the overall:
 |------|---------|
 | `src/skill/SKILL.md` | `~/.claude/skills/professor-review/SKILL.md` |
 | `src/command/vibe-review.md` | `~/.claude/commands/vibe-review.md` |
+| `src/command/vibe-test.md` | `~/.claude/commands/vibe-test.md` |
 | `src/agent/professor-advisor.md` | `~/.claude/agents/professor-advisor.md` |
 | `src/agent/professor-reviewer.md` | `~/.claude/agents/professor-reviewer.md` |
 | `src/agent/professor-security.md` | `~/.claude/agents/professor-security.md` |
@@ -168,6 +169,7 @@ The skill uses the `sonnet` and `opus` aliases everywhere, so it always runs on 
 ```bash
 rm ~/.claude/skills/professor-review/SKILL.md
 rm ~/.claude/commands/vibe-review.md
+rm ~/.claude/commands/vibe-test.md
 rm ~/.claude/agents/professor-advisor.md
 rm ~/.claude/agents/professor-reviewer.md
 rm ~/.claude/agents/professor-security.md
@@ -177,15 +179,17 @@ rmdir ~/.claude/skills/professor-review
 
 ## Testing the skill itself
 
-The repo ships a fixture suite under `tests/fixtures/` for regression-checking the skill after edits. It's not a pass/fail unit-test suite (the skill is LLM-driven and inherently noisy) — it's a calibration anchor you eyeball.
+The repo ships a fixture suite under `tests/fixtures/` plus an automated test command:
 
 ```
-/vibe-review tests/fixtures/
+/vibe-test
 ```
 
-Then compare the output against `tests/expected/README.md`, which documents per-fixture: expected grade range, must-catch findings, must-not-flag patterns. See [tests/README.md](tests/README.md) for details.
+That's it. The command grades every fixture in `tests/fixtures/`, compares each report against `tests/expected/README.md`, and produces a pass/fail-style summary table with a single-word verdict (`HEALTHY`, `DRIFT`, or `REGRESSION`).
 
-If you edit the rubric, the AI-slop checklist, or any agent prompt, run the fixtures first and check that the report doesn't drift in unexpected ways.
+Run it after editing `SKILL.md`, the AI-slop checklist, any agent prompt, or whenever Claude Code upgrades to a new Sonnet/Opus version.
+
+For details on individual fixtures and what they test, see [tests/README.md](tests/README.md) and [tests/expected/README.md](tests/expected/README.md).
 
 ## License
 

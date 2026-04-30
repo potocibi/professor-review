@@ -25,6 +25,7 @@ function Install-File {
 Write-Host "Installing professor-review to $ClaudeDir"
 Install-File (Join-Path $RepoRoot 'src\skill\SKILL.md')                (Join-Path $SkillDir 'SKILL.md')
 Install-File (Join-Path $RepoRoot 'src\command\vibe-review.md')        (Join-Path $CommandDir 'vibe-review.md')
+Install-File (Join-Path $RepoRoot 'src\command\vibe-test.md')          (Join-Path $CommandDir 'vibe-test.md')
 Install-File (Join-Path $RepoRoot 'src\agent\professor-advisor.md')    (Join-Path $AgentDir 'professor-advisor.md')
 Install-File (Join-Path $RepoRoot 'src\agent\professor-reviewer.md')   (Join-Path $AgentDir 'professor-reviewer.md')
 Install-File (Join-Path $RepoRoot 'src\agent\professor-security.md')   (Join-Path $AgentDir 'professor-security.md')
