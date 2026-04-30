@@ -86,8 +86,62 @@ For each finding, decide one of:
 - **extract** — split a god-class or oversized file (only when a HIGH/CRITICAL design finding asked for it)
 - **delete** — remove dead code, ceremony docstring, single-caller helper
 - **leave-with-note** — finding is real but the fix would risk Rule 1 (changing purpose) or Rule 2 (breaking the program); document why and move on
+- **needs-clarification** — you are uncertain about the finding (see triggers below); consult the reviewer before deciding (handled in Step 2.5)
 
 Write the plan to your scratch space before touching any file. If the plan calls for creating *any* new function, class, helper, or constant, mark those as "needs reuse search" and handle them in Step 3.
+
+### Step 2.5 — Consult the reviewer when uncertain
+
+You can dispatch the `professor-reviewer` agent in **Clarification Mode** when you are uncertain about a specific finding. This is the channel back to the original reviewer brain — use it, don't guess.
+
+**When to consult (mandatory triggers):**
+
+1. **Stale finding** — an earlier fix in this run already touched the cited file; you can't tell if the finding still applies to its original line
+2. **Severity feels off** — the finding is tagged HIGH but the file/code in question seems too small or too edge-casey to deserve HIGH; or tagged CRITICAL but the impact looks bounded
+3. **Conflicting findings** — two findings in the report disagree about the right shape for a piece of code (e.g. one says inline a helper, another says split the file containing it)
+4. **Behavior change risk** — you can see the fix, but applying it would change observable behavior in a specific way you can't be sure the user wants
+5. **Suspected false positive** — your read of the code suggests the finding is wrong; you have specific evidence (a Grep hit, a usage in tests, a runtime check) that the original review missed
+
+**When NOT to consult (just decide):**
+
+- The finding is clear and the fix is obvious — apply it
+- You're choosing between two equally good fix shapes — pick one and document
+- The finding is a MEDIUM or LOW (you weren't going to fix it anyway)
+
+**How to consult:**
+
+Dispatch a `professor-reviewer` subagent. The first line of your prompt MUST be `MODE: CLARIFY` (otherwise the agent runs in Review Mode and produces a findings list instead of an answer). Then provide:
+
+1. The original finding verbatim — severity, file:line, description, dimension, source pass
+2. The current state of the cited file (read it with `Read` and paste the relevant section, or just point to the path if unchanged from Phase 1)
+3. **One specific question**, in one of the categories from the Clarify-Mode docs (still applicable / severity sanity check / scope / conflict resolution / behavior risk / false positive check)
+
+You will receive back a two-line directive in this shape:
+
+```
+DIRECTIVE: <FIX_AS_TAGGED | DOWNGRADE_TO_<sev> | UPGRADE_TO_<sev> | SKIP_FALSE_POSITIVE | SKIP_RISKY_BEHAVIOR_CHANGE | EXPAND_SCOPE_TO_<lines> | NARROW_SCOPE_TO_<lines> | DEFER_TO_HUMAN>
+REASONING: <one or two sentences>
+```
+
+**Apply the directive verbatim:**
+
+| Directive | Action |
+|---|---|
+| `FIX_AS_TAGGED` | Apply the original fix |
+| `DOWNGRADE_TO_MEDIUM` or lower | Skip (you don't fix MEDIUM/LOW) |
+| `DOWNGRADE_TO_HIGH` from CRITICAL | Apply, but with extra Step-5 verification |
+| `UPGRADE_TO_CRITICAL` (Security source) | Reclassify as Security CRITICAL → Left for human review |
+| `SKIP_FALSE_POSITIVE` | Skip; note in report under "Skipped — reviewer ruled false positive" |
+| `SKIP_RISKY_BEHAVIOR_CHANGE` | Move to leave-with-note in report |
+| `EXPAND_SCOPE_TO_<range>` | Apply fix to the wider range cited |
+| `NARROW_SCOPE_TO_<range>` | Apply fix only to the narrower range cited |
+| `DEFER_TO_HUMAN` | Move to Left for human review with the reasoning attached |
+
+**Cap on consultations:**
+
+Maximum **3 consultations per fix run** to prevent ping-pong loops. If you would need a 4th, instead resolve everything remaining as leave-with-note and ship the report. The user can re-run the skill with a fresh review if needed.
+
+After Step 2.5, every finding in your plan should have a concrete decision (edit / extract / delete / leave-with-note / skip / human-review). Then proceed to Step 3.
 
 ### Step 3 — Reuse search (Rule 4)
 For every "needs reuse search" item from Step 2:
@@ -164,6 +218,10 @@ End your run with this exact structure:
 - [file:line] <finding> — <one-line description of the security issue and what to investigate>
 (or "No Security CRITICALs in this report.")
 
+### Skipped — reviewer ruled false positive (Clarification Mode)
+- [file:line] <finding> — <reviewer's reasoning>
+(or "None.")
+
 ## Findings deliberately ignored (per Phase 2 rules)
 - N MEDIUM findings (style preferences)
 - N LOW findings (minor)
@@ -172,6 +230,11 @@ End your run with this exact structure:
 - <count> comments removed
 - <count> docstrings rewritten
 - <count> AI-tell phrases stripped
+
+## Reviewer consultations
+- <count> findings consulted with the reviewer in Clarification Mode (cap: 3 per run)
+- For each: list `[file:line]` → directive received → action taken
+- (or "No consultations needed — all findings were unambiguous.")
 
 ## Reuse search (Rule 4)
 - <count> proposed new helpers found in existing code and reused — list them

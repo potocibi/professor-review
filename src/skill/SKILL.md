@@ -188,6 +188,10 @@ These are the tells that code was written by an LLM in one shot and never cleane
 13. **Obvious-restating comments** — `i += 1  # increment i` (LOW)
 14. **Generic variable names in non-trivial contexts** — `data`, `result`, `obj`, `tmp` used as primary names in 50-line functions (MEDIUM)
 15. **Premature `if __name__ == "__main__"` blocks** with extensive demo code that duplicates tests (MEDIUM)
+16. **Name-vs-behavior mismatch** — function/method/class name promises one thing; body does another. `getUser()` that creates; `validate_X()` whose body cannot return False; `cleanup()` that allocates; query method (`get_*`, `find_*`, `is_*`) that mutates state; `__repr__` / `__str__` with side effects (HIGH — this is the textbook vibe-coding failure mode)
+17. **Comment/code disagreement** — comment says "increment by 2", code does `+= 1`; docstring says "returns dict", function returns list; comment claims an invariant the code doesn't enforce (HIGH)
+18. **Unit confusion in identifiers** — `timeout_ms` storing seconds; `latency_seconds` compared against millisecond constants; `size_bytes` holding char count; arithmetic mixing different units without conversion (HIGH)
+19. **Validation theater** — `validate_*` / `check_*` / `is_valid_*` functions whose body cannot reject anything; "validators" that log on failure but still return True; permission checks that always allow (HIGH)
 
 ## Phase 1 aggregation
 
