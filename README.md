@@ -175,6 +175,18 @@ rm ~/.claude/agents/professor-fixer.md
 rmdir ~/.claude/skills/professor-review
 ```
 
+## Testing the skill itself
+
+The repo ships a fixture suite under `tests/fixtures/` for regression-checking the skill after edits. It's not a pass/fail unit-test suite (the skill is LLM-driven and inherently noisy) — it's a calibration anchor you eyeball.
+
+```
+/vibe-review tests/fixtures/
+```
+
+Then compare the output against `tests/expected/README.md`, which documents per-fixture: expected grade range, must-catch findings, must-not-flag patterns. See [tests/README.md](tests/README.md) for details.
+
+If you edit the rubric, the AI-slop checklist, or any agent prompt, run the fixtures first and check that the report doesn't drift in unexpected ways.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
