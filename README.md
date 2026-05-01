@@ -177,6 +177,37 @@ rm ~/.claude/agents/professor-fixer.md
 rmdir ~/.claude/skills/professor-review
 ```
 
+## Memory — staying consistent across runs
+
+Run `/vibe-review` enough times on the same codebase and you'll want it to remember decisions: which findings you ruled false positives, what conventions your codebase has chosen, what fix patterns you accepted last time. The skill supports this via a `.vibe-memory/` directory at the root of the *target* repo (the codebase being reviewed, not this skill's repo).
+
+Two files, both plain markdown, both human-editable:
+
+- **`.vibe-memory/false-positives.md`** — findings the reviewer ruled false positives, or that you explicitly dismissed. Reviewers will not re-flag these on future runs (with one exception: see below).
+- **`.vibe-memory/conventions.md`** — codebase-specific style/architecture rules you want enforced. Example: *"this project keeps single-caller helpers for testability"*, *"private methods skip type hints"*, *"we prefer dataclasses over plain classes"*. The fixer reads this before writing replacement code so style matches existing convention.
+
+### How memory gets populated
+
+- **`false-positives.md`** — populated automatically by the fixer when the reviewer rules `SKIP_FALSE_POSITIVE` during a Phase 2 consultation. You can also add entries manually.
+- **`conventions.md`** — never auto-written. The fixer surfaces proposed conventions in its post-fix report under "Proposed conventions" and you decide whether to add them. This file stays human-authored to prevent the skill from locking in the wrong rule.
+
+If the directory doesn't exist, the skill runs without memory. The fixer creates the directory and `false-positives.md` only if it has something concrete to write — never speculatively.
+
+### Memory is hints, not law
+
+Three deliberate limits:
+
+1. **Security CRITICALs are never suppressed by memory.** If a finding listed in `false-positives.md` re-appears from the Security pass, it surfaces with a "previously dismissed on YYYY-MM-DD — please reconfirm" note. Reality changes; a previously-fine `pickle.loads` might now be reachable from user input.
+2. **Conventions can override style defaults but not the five non-negotiable fixer rules.** You can tell the skill "single-caller helpers are fine here", but you can't tell it "let me change the program's purpose" or "skip the syntax check".
+3. **Suppressed findings are visible.** Every report has a "Suppressed by memory" section listing what got filtered, so you can see and reverse decisions if needed.
+
+### Should I commit `.vibe-memory/` to git?
+
+Up to you. Two patterns:
+
+- **Commit it** — the team shares the same memory. Good for codebases with strong conventions everyone agrees on.
+- **`.gitignore` it** — each developer has their own memory. Good if reviewers disagree about what's a false positive and you don't want to coordinate.
+
 ## Testing the skill itself
 
 The repo ships a fixture suite under `tests/fixtures/` plus an automated test command:

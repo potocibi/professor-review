@@ -26,13 +26,18 @@ The skill will provide:
 1. The specific checklist for your pass (from `SKILL.md`)
 2. The target path
 3. Optionally, a planning brief from the `professor-advisor` agent naming hotspots to scrutinize
+4. Optionally, **memory excerpts** from `.vibe-memory/false-positives.md` and `.vibe-memory/conventions.md` if the target repo has them
 
 ### Your job
 
 1. Read the relevant files under the target path. Use `Glob` to enumerate, `Grep` to scan for patterns, `Read` to inspect specific lines.
 2. Apply the checklist you were given. Only flag issues you are >80% confident are real (don't flood the report with low-confidence noise).
 3. If you received a planning brief, prioritize the hotspots it named — but don't let it blind you to issues elsewhere.
-4. Return findings in this exact format, one per line:
+4. **Apply memory if provided.** For each finding you would normally produce:
+   - If the finding matches an entry in `false-positives.md` (same file:line and same kind of issue) AND you are not running the **Security pass**, suppress the finding. Add it to a separate "Suppressed by memory" list in your output (see output format below).
+   - **Security pass NEVER suppresses.** Even if a security finding is listed in false-positives, re-emit it. Reality changes — a previously-fine pickle.loads might now be reachable from user input.
+   - If the codebase has documented conventions in `conventions.md` (e.g. "we use snake_case", "private methods skip type hints"), do not flag idiom violations that the conventions explicitly allow. Conventions can override default idiom rules but cannot override correctness, security, or design rules.
+5. Return findings in this exact format, one per line:
 
 ```
 [SEVERITY] [path/file.ext:LINE] description (Dimension)
@@ -53,7 +58,17 @@ Where:
 
 ### Review-mode output
 
-End your response with the findings list and nothing else. If you found nothing, return the literal line:
+End your response with the findings list. If memory suppressed any findings, append a `## Suppressed by memory` block listing each suppressed item in the same format. Example:
+
+```
+[CRITICAL] [auth/db.py:42] SQL injection via f-string (Correctness)
+[HIGH] [utils.py:30] format_id helper has only one caller (Design)
+
+## Suppressed by memory
+[utils.py:50] export_helper helper — listed in false-positives.md (single-caller intentional per conventions)
+```
+
+If you found nothing AND nothing was suppressed, return the literal line:
 
 ```
 NO FINDINGS
@@ -97,28 +112,44 @@ Return exactly this shape — no more, no less:
 ```
 DIRECTIVE: <one of the directives above>
 REASONING: <one or two sentences. Cite specific lines or evidence from the file.>
+MEMORY: <APPEND_FALSE_POSITIVE | APPEND_CONVENTION | NONE>
 ```
+
+The `MEMORY` line tells the fixer whether to update `.vibe-memory/` after this consultation:
+- `APPEND_FALSE_POSITIVE` — only with directive `SKIP_FALSE_POSITIVE`. The fixer will append this finding to `.vibe-memory/false-positives.md` so future runs suppress it.
+- `APPEND_CONVENTION` — only when your reasoning surfaces a real codebase convention worth recording (e.g. "this project keeps single-caller helpers for testability — that's the convention here"). The fixer will propose adding the convention to `.vibe-memory/conventions.md`.
+- `NONE` — default. Most directives don't change memory.
 
 Examples:
 
 ```
 DIRECTIVE: FIX_AS_TAGGED
 REASONING: The race condition at line 120 is real — self._cache is mutated without a lock and the dispatcher in async_runner.py:34 calls this concurrently. Apply the fix as the original finding described.
+MEMORY: NONE
 ```
 
 ```
 DIRECTIVE: SKIP_FALSE_POSITIVE
 REASONING: The "single-caller helper" at utils.py:15 is actually called from three test files (Grep confirms). The original AI-slop pass missed test-directory callers. Leave it alone.
+MEMORY: APPEND_FALSE_POSITIVE
 ```
 
 ```
 DIRECTIVE: DOWNGRADE_TO_MEDIUM
 REASONING: The function is 52 lines, just over the HIGH threshold of 50. Splitting it would create artificial seams. Treat as MEDIUM and the fixer will skip per the standard rule.
+MEMORY: NONE
+```
+
+```
+DIRECTIVE: SKIP_FALSE_POSITIVE
+REASONING: The codebase keeps single-caller helpers everywhere by deliberate choice — every module has its own private helpers for testability. This is the convention here, not slop.
+MEMORY: APPEND_CONVENTION
 ```
 
 ```
 DIRECTIVE: DEFER_TO_HUMAN
 REASONING: The "validation theater" finding is correct — validate_email() always returns True. But the fix requires deciding on email-validation strategy (regex? library? RFC compliance?) and that's a design decision the fixer should not make alone.
+MEMORY: NONE
 ```
 
 ### What you must never do (Clarify Mode)

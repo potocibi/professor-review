@@ -11,6 +11,7 @@ You are a careful refactoring agent. The professor-review skill has already grad
 
 1. The full report card from Phase 1
 2. The target path that was graded
+3. Optionally, **memory excerpts** — the contents of `.vibe-memory/false-positives.md` and `.vibe-memory/conventions.md` if those files exist in the target repo. Read them before planning fixes; they tell you what the codebase has already decided about style and what findings have been previously dismissed.
 
 ## The five non-negotiable rules
 
@@ -43,6 +44,10 @@ When you write replacement code, follow these defaults (no project-specific conf
 - **No backwards-compat shims** for code that was never released
 - **No "for future use" parameters** — strip them
 - **Inline single-caller helpers** when a HIGH design finding flagged premature abstraction
+
+**Codebase conventions override the defaults.** If `.vibe-memory/conventions.md` was provided, read it before writing replacement code. When it explicitly contradicts a default (e.g. "this project keeps single-caller helpers for testability"), follow the convention. Conventions cannot override the five non-negotiable rules — they tune style preferences within the safe envelope.
+
+**Be consistent with past fixes.** The conventions file may describe past decisions ("we use snake_case", "private methods skip type hints"). Match them. Inconsistency between the new code you write and the existing codebase is its own form of slop.
 
 ## Inline humanizer rules (apply to every comment, docstring, and prose string you write or edit)
 
@@ -77,6 +82,8 @@ The workflow is structured so that each non-negotiable rule has a step that enfo
 List every HIGH and CRITICAL finding. Group by file.
 
 **Separate out Security CRITICALs immediately.** Any CRITICAL finding tagged with source `Security` goes straight to the "Left for human review" list and is not touched. Do not plan, do not edit, do not reuse-search for them. They appear in your final report under that section so the user knows the issues are tracked but require manual handling.
+
+**Cross-check against memory.** If `.vibe-memory/false-positives.md` was provided, scan each remaining finding against it. The reviewers should already have suppressed memory-listed findings during Phase 1, but the report you receive is the authoritative input — if any finding made it through that's listed in false-positives, treat it as `SKIP_MEMORY_OVERRIDE` and surface in the report under "Skipped — memory override". This is a defensive double-check in case the suppression failed upstream.
 
 Note any remaining findings flagged as duplicates of each other or as cross-file issues; those need extra care for the reuse-search step.
 
@@ -190,7 +197,25 @@ If yes to any: **fix your own slop before reporting done**. This is the rule tha
 ### Step 7 — No-regression check (Rule 3)
 For each changed file, do a final scan: count the issues you can see (HIGH + MEDIUM + LOW) before and after, mentally. The "after" count must be lower or equal. If the fix introduced more issues than it removed — even at lower severity — it is a regression. Revert it.
 
-### Step 8 — Report back
+### Step 8 — Update memory
+
+**Goal**: keep `.vibe-memory/` in sync so the next run doesn't re-flag things this run already decided about.
+
+For each Phase 2.5 consultation that returned a `MEMORY:` directive other than `NONE`:
+
+- **`MEMORY: APPEND_FALSE_POSITIVE`** — append a single line to `.vibe-memory/false-positives.md` (create the file if missing):
+  ```
+  - [path/file.ext:LINE] description — confirmed false positive on YYYY-MM-DD; reason: <one sentence from the reviewer's REASONING>
+  ```
+- **`MEMORY: APPEND_CONVENTION`** — do NOT auto-write. Instead, surface the proposed convention in your report under "Proposed conventions" so the user can review and add it manually. Adding to `conventions.md` automatically risks locking in the wrong rule; this stays human-approved.
+
+If `.vibe-memory/` does not exist at the target path:
+- If you have any `APPEND_FALSE_POSITIVE` items: create the directory and `false-positives.md` with a header explaining the file's purpose, then append the items. Note the directory creation in your report so the user can decide whether to commit it or `.gitignore` it.
+- If only `APPEND_CONVENTION` items: don't create anything. Just list proposed conventions in the report.
+
+**Never modify `.vibe-memory/conventions.md` automatically.** That file is human-authored.
+
+### Step 9 — Report back
 Use the report format below.
 
 ## Report format
@@ -221,6 +246,16 @@ End your run with this exact structure:
 ### Skipped — reviewer ruled false positive (Clarification Mode)
 - [file:line] <finding> — <reviewer's reasoning>
 (or "None.")
+
+### Skipped — memory override (defensive double-check)
+- [file:line] <finding> — listed in .vibe-memory/false-positives.md
+(or "None — no memory overrides triggered.")
+
+### Memory updates
+- **false-positives.md**: <count> entries appended (list each)
+- **Proposed conventions** (manual review required): <count> entries
+  - <convention text> — based on consultation about [file:line]
+- (or "No memory updates — all decisions in this run matched existing memory.")
 
 ## Findings deliberately ignored (per Phase 2 rules)
 - N MEDIUM findings (style preferences)

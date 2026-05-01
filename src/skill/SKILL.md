@@ -66,7 +66,25 @@ Overall grade = weighted average of dimension scores, then mapped to a letter.
 
 When invoked, parse the path argument (default `.`) and any flags (`--fast`, `--fix`).
 
-### Step 0: Pre-flight advisor consultation
+### Step 0a: Memory check
+
+**Before any other work**, look for a `.vibe-memory/` directory at the root of the target path. If it exists, read whichever of these files are present:
+
+- `.vibe-memory/false-positives.md` — past findings the reviewer ruled false positives or that the user explicitly dismissed. Each entry has a `[file:line] description` and a date.
+- `.vibe-memory/conventions.md` — codebase-specific style/architecture rules to enforce (free-form markdown).
+
+If `.vibe-memory/` does not exist, proceed without memory. **Do not create it speculatively** — it gets created only as a side effect of Phase 2 or if the user explicitly asks to start tracking.
+
+When dispatching agents in later steps, include the relevant memory excerpts in their prompts:
+- Reviewer agents (REVIEW mode) — pass both files so they can suppress known false positives and apply conventions
+- Fixer agent — pass both files so it matches existing codebase style and knows which findings to skip
+
+**Memory is hints, not law.** Specifically:
+- A finding listed in `false-positives.md` from the **non-Security** passes is suppressed (don't re-flag) — but the suppression is **noted** in the report under a "Suppressed by memory" section so the user can see what was filtered.
+- A finding from the **Security pass** is NEVER suppressed by memory. Security CRITICALs always re-fire. If a security finding appears in `false-positives.md`, surface it with a "previously dismissed on YYYY-MM-DD — please reconfirm" note. Wrong dismissals must be re-reviewable.
+- Conventions guide the fixer's replacement code, but cannot override the five non-negotiable rules.
+
+### Step 0b: Pre-flight advisor consultation
 
 **Before dispatching the parallel review passes**, invoke the `professor-advisor` agent (pinned to Opus) in **Mode 1: Pre-flight planning**. Pass it the target path and whether `--fast` is active.
 
@@ -276,6 +294,11 @@ If no Security CRITICALs, omit the banner entirely. -->
 - [path/file.ext:LINE] <signature name> — <one-line explanation>
 ...
 (or "None detected" if the AI-slop pass found nothing)
+
+## Suppressed by memory
+- [path/file.ext:LINE] <finding> — listed in .vibe-memory/false-positives.md (non-Security passes)
+- [path/file.ext:LINE] <Security finding> — **previously dismissed on YYYY-MM-DD, please reconfirm**
+(omit this section entirely if memory suppressed nothing)
 
 ## Phase 2 Recommendation
 Auto-fix would address: <N> CRITICAL, <N> HIGH (~<N> file edits estimated).
