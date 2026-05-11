@@ -133,6 +133,7 @@ The Quality pass agent should systematically check the target path against this 
 - Wrong error type re-raised
 - Type misuse (using string where int expected, etc.)
 - Mutation of function arguments
+- LSP violation — subclass overrides a method and throws an exception the parent never throws, narrows accepted input types, or adds preconditions callers of the parent don't know about; swap test: replacing the parent with this subclass breaks existing callers (HIGH)
 
 ### Performance (MEDIUM-HIGH)
 - N+1 queries in loops
@@ -172,6 +173,7 @@ The Design pass agent should look at the codebase as a whole, not line-by-line. 
 - Modules with too many dependencies (a class importing 15+ other modules)
 - Tight coupling to concrete implementations where an interface would belong
 - Shared mutable global state across modules
+- DIP violation — high-level module (service, controller, use-case) directly instantiates a concrete low-level class (`new MySQLRepository()`, `import ConcreteMailer`) instead of depending on an injected abstraction; sign: `new` or direct import of an infrastructure class inside business logic (HIGH)
 
 ### Structure
 - Layering violations (UI calling DB directly, bypassing service layer)
@@ -180,6 +182,7 @@ The Design pass agent should look at the codebase as a whole, not line-by-line. 
 - Interfaces with one implementer (no value add)
 - Large files (>800 lines) that should be split by responsibility
 - Inconsistent module structure across the codebase
+- ISP violation — interface or abstract base class bundles methods for different clients, forcing implementers to stub or raise `NotImplementedError` for methods they don't use; sign: multiple `pass` / `raise NotImplementedError` / `return None` stubs in the same concrete class (MEDIUM)
 
 ### Maintainability
 - Hard-coded paths, URLs, magic strings that should be config
@@ -210,6 +213,7 @@ These are the tells that code was written by an LLM in one shot and never cleane
 17. **Comment/code disagreement** — comment says "increment by 2", code does `+= 1`; docstring says "returns dict", function returns list; comment claims an invariant the code doesn't enforce (HIGH)
 18. **Unit confusion in identifiers** — `timeout_ms` storing seconds; `latency_seconds` compared against millisecond constants; `size_bytes` holding char count; arithmetic mixing different units without conversion (HIGH)
 19. **Validation theater** — `validate_*` / `check_*` / `is_valid_*` functions whose body cannot reject anything; "validators" that log on failure but still return True; permission checks that always allow (HIGH)
+20. **LSP bait-and-switch** — subclass overrides a method to `raise NotImplementedError`, return a hardcoded wrong value, or silently do nothing; the override compiles but breaks any code that treats the subclass as its parent. LLMs frequently generate class hierarchies that look correct but violate substitutability (HIGH)
 
 ## Phase 1 aggregation
 
